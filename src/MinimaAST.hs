@@ -35,6 +35,7 @@ foldExpression with = foldOver where
   foldOver context (Call func args) = foldCall with context (fst $ foldOver context func) (fst <$> ((foldOver context) <$> args))
   foldOver context (Function params body) = foldFunction with context params body
   foldOver context (Access object field) = foldAccess with context (fst $ foldOver context object) field
+  foldOver context (Object fields) = foldObject with context (map (\(n, x) -> (n, fst $ foldOver context x)) fields)
   foldOver context (Group expressions) = foldGroup with context (case expressions of
       (x:xs) -> fst $ foldGroup' (foldOver context x) xs foldOver where
         foldGroup' (initial, context) = foldGroup'' ([initial], context) where
