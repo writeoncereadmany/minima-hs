@@ -14,25 +14,25 @@ data Expression
   | Group [Expression]
   deriving (Show)
 
-data ExpressionSemantics t = ExpressionSemantics {
-  foldVariable :: String -> t,
-  foldDeclaration :: String -> t -> t,
-  foldStringLiteral :: String -> t,
-  foldNumberLiteral :: Double -> t,
-  foldCall :: t -> [t] -> t,
-  foldFunction :: [String] -> Expression -> t,
-  foldAccess :: t -> String -> t,
-  foldObject :: [(String, t)] -> t,
-  foldGroup :: [t] -> t
+data ExpressionSemantics t c = ExpressionSemantics {
+  foldVariable :: c -> String -> (t, c),
+  foldDeclaration :: c -> String -> t -> (t, c),
+  foldStringLiteral :: c -> String -> (t, c),
+  foldNumberLiteral :: c -> Double -> (t, c),
+  foldCall :: c -> t -> [t] -> (t, c),
+  foldFunction :: c -> [String] -> Expression -> (t, c),
+  foldAccess :: c -> t -> String -> (t, c),
+  foldObject :: c -> [(String, t)] -> (t, c),
+  foldGroup :: c -> [t] -> (t, c)
 }
 
-foldExpression :: ExpressionSemantics t -> Expression -> t
+foldExpression :: ExpressionSemantics t c -> c -> Expression -> (t, c)
 foldExpression with = foldOver where
-  foldOver (Variable name) = foldVariable with name
-  foldOver (Declaration name value) = foldDeclaration with name (foldOver value)
-  foldOver (StringLiteral text) = foldStringLiteral with text
-  foldOver (NumberLiteral number) = foldNumberLiteral with number
-  foldOver (Call func args) = foldCall with (foldOver func) (foldOver <$> args)
-  foldOver (Function params body) = foldFunction with params body
-  foldOver (Access object field) = foldAccess with (foldOver object) field
-  foldOver (Group expressions) = foldGroup with (foldOver <$> expressions)
+  foldOver context (Variable name) = foldVariable with context name
+  foldOver context (Declaration name value) = foldDeclaration with context name (fst $ foldOver context value)
+  foldOver context (StringLiteral text) = foldStringLiteral with context text
+  foldOver context (NumberLiteral number) = foldNumberLiteral with context number
+  foldOver context (Call func args) = foldCall with context (fst $ foldOver context func) (fst <$> ((foldOver context) <$> args))
+  foldOver context (Function params body) = foldFunction with context params body
+  foldOver context (Access object field) = foldAccess with context (fst $ foldOver context object) field
+  foldOver context (Group expressions) = foldGroup with context (fst <$> ((foldOver context) <$> expressions))
