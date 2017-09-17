@@ -35,4 +35,10 @@ foldExpression with = foldOver where
   foldOver context (Call func args) = foldCall with context (fst $ foldOver context func) (fst <$> ((foldOver context) <$> args))
   foldOver context (Function params body) = foldFunction with context params body
   foldOver context (Access object field) = foldAccess with context (fst $ foldOver context object) field
-  foldOver context (Group expressions) = foldGroup with context (fst <$> ((foldOver context) <$> expressions))
+  foldOver context (Group expressions) = foldGroup with context (case expressions of
+      (x:xs) -> fst $ foldGroup' (foldOver context x) xs foldOver where
+        foldGroup' (initial, context) = foldGroup'' ([initial], context) where
+          foldGroup'' (acc, context) (x:xs) folder = let (next, c) = folder context x
+                                                      in foldGroup'' (acc ++ [next], c) xs folder
+      [] -> error "Cannot have an empty group"
+    )
