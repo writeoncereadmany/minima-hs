@@ -20,7 +20,6 @@ library
                      , MinimaParser
                      , MinimaTerpreter
                      , NanoParse
-                     , Dice
                      , SubMinimaAST
                      , SubMinimaPrettyPrinter
   build-depends:       base >= 4.7 && < 5
