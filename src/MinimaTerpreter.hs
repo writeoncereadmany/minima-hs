@@ -4,31 +4,54 @@ import MinimaAST
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-type Type = String
+-- this kinda sucks - it's how we handle built-in types, but it's not exactly extensible
+data State = Num Double | Str String | Nowt
 
 data Value
-  = VObject Type String (Map String Value)
+  = VObject State String (Map String Value)
   | VBuiltinFunction String ([Value] -> Value)
   | VFunction [String] Expression
 
 instance Show Value where
-  show (VObject typ value methods) = show typ ++ ": " ++ value
+  show (VObject state display methods) = display
   show (VBuiltinFunction name f) = "Function " ++ name
   show (VFunction params body) = "Custom function"
 
 type Environment = Map String Value
 
+invalidArgs :: String -> String -> [Value] -> a
+invalidArgs name expected actual = error (name ++ " takes " ++ expected ++ ": given " ++ show actual)
+
+showAs :: String -> Value
+showAs text = VBuiltinFunction "show" shower'
+  where shower' [] = vString text
+        shower' args = invalidArgs "show" "no arguments" args
+
 vString :: String -> Value
-vString text = VObject "String" text Map.empty
+vString text = VObject (Str text) text  (Map.fromList
+    [ ("concat", VBuiltinFunction "concat" concatStrings)
+    , ("show", showAs text)
+    ])
+    where concatStrings [(VObject (Str t) _ _)] = vString $ text ++ t
+          concatStrings args = invalidArgs "Concat" "a single string" args
 
 vNumber :: Double -> Value
-vNumber number = VObject "Number" (show number) Map.empty
+vNumber number = VObject (Num number) (show number) (Map.fromList
+    [ binaryOp "plus" (+)
+    , binaryOp "minus" (-)
+    , binaryOp "multiplyBy" (*)
+    , binaryOp "divideBy" (/)
+    , ("show", showAs $ show number)
+    ])
+    where apply _ op [(VObject (Num n) _ _)] = vNumber $ number `op` n
+          apply name op args = invalidArgs name "a single number" args
+          binaryOp name op = (name, VBuiltinFunction name (apply name op))
 
 vObject :: Map String Value -> Value
-vObject fields = VObject "Object" (show fields) fields
+vObject fields = VObject Nowt (show fields) fields
 
 success :: Value
-success = VObject "Success" "success" Map.empty
+success = VObject Nowt "Success" ( Map.fromList [("show", showAs "Success")] )
 
 callFunction :: Environment -> Value -> [Value] -> Value
 callFunction context (VObject typ _ _) args = error "Cannot call an object"

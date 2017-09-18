@@ -7,5 +7,5 @@ import MinimaParser
 import MinimaTerpreter
 
 eval :: String -> (Value, Environment)
-eval code = foldl execute (success, Map.empty) (parseProgram code) where
+eval code = foldl execute (success, Map.fromList [("success", success)]) (parseProgram code) where
   execute (value, context) expr = foldExpression evaluator context expr
