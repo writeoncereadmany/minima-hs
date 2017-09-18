@@ -44,3 +44,15 @@ foldExpression with = foldOver where
           foldGroup'' (acc, context) [] folder = (acc, context)
       [] -> error "Cannot have an empty group"
     )
+
+contextFree :: (a -> b) -> c -> a -> (b, c)
+contextFree f = \context -> \initial -> (f initial, context)
+
+contextFree2 :: (x -> y -> z) -> c -> x -> y -> (z, c)
+contextFree2 f = \context -> \x -> \y -> (f x y, context)
+
+usingContext :: (c -> a -> b) -> c -> a -> (b, c)
+usingContext f = \context -> \initial -> (f context initial, context)
+
+usingContext2 :: (c -> x -> y -> z) -> c -> x -> y -> (z, c)
+usingContext2 f = \context -> \x -> \y -> (f context x y, context)

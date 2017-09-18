@@ -4,7 +4,7 @@ import MinimaAST
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-data Type = TString | TNumber | TSuccess | TObject deriving (Show, Eq)
+type Type = String
 
 data Value
   = VObject Type String (Map String Value)
@@ -19,16 +19,16 @@ instance Show Value where
 type Environment = Map String Value
 
 vString :: String -> Value
-vString text = VObject TString text Map.empty
+vString text = VObject "String" text Map.empty
 
 vNumber :: Double -> Value
-vNumber number = VObject TNumber (show number) Map.empty
+vNumber number = VObject "Number" (show number) Map.empty
 
 vObject :: Map String Value -> Value
-vObject fields = VObject TObject (show fields) fields
+vObject fields = VObject "Object" (show fields) fields
 
 success :: Value
-success = VObject TSuccess "success" Map.empty
+success = VObject "Success" "success" Map.empty
 
 callFunction :: Environment -> Value -> [Value] -> Value
 callFunction context (VObject typ _ _) args = error "Cannot call an object"
@@ -43,22 +43,13 @@ access _ _ = error "Cannot access fields of a function"
 
 evaluator :: ExpressionSemantics Value Environment
 evaluator = ExpressionSemantics {
-  foldVariable = \context -> \name -> (context Map.! name, context),
+  foldVariable = usingContext (Map.!):,
   foldDeclaration = \context -> \name -> \value -> (success, Map.insert name value context),
   foldStringLiteral = contextFree vString,
   foldNumberLiteral = contextFree vNumber,
-  foldCall = usingContext callFunction,
+  foldCall = usingContext2 callFunction,
   foldFunction = contextFree2 VFunction,
   foldAccess = contextFree2 access,
   foldObject = contextFree $ vObject . Map.fromList,
   foldGroup = contextFree last
 }
-
-contextFree :: (a -> b) -> c -> a -> (b, c)
-contextFree f = \context -> \initial -> (f initial, context)
-
-contextFree2 :: (x -> y -> z) -> c -> x -> y -> (z, c)
-contextFree2 f = \context -> \x -> \y -> (f x y, context)
-
-usingContext :: (c -> x -> y -> z) -> c -> x -> y -> (z, c)
-usingContext f = \context -> \x -> \y -> (f context x y, context)
