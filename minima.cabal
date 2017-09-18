@@ -2,12 +2,12 @@ name:                minima
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/minima#readme
+homepage:            https://github.com/writeoncereadmany/minima-hs#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2017 Author name here
+author:              Tom Johnson
+maintainer:          tarjohnson1979@gmail.com
+copyright:           2017 Tom Johnson
 category:            Web
 build-type:          Simple
 extra-source-files:  README.md
@@ -20,8 +20,10 @@ library
                      , MinimaParser
                      , MinimaTerpreter
                      , NanoParse
+                     , Dice
   build-depends:       base >= 4.7 && < 5
                      , containers
+                     , random
   default-language:    Haskell2010
 
 executable minima-exe
