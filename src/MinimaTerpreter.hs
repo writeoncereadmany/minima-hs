@@ -43,7 +43,7 @@ access _ _ = error "Cannot access fields of a function"
 
 evaluator :: ExpressionSemantics Value Environment
 evaluator = ExpressionSemantics {
-  foldVariable = usingContext (Map.!):,
+  foldVariable = usingContext (Map.!),
   foldDeclaration = \context -> \name -> \value -> (success, Map.insert name value context),
   foldStringLiteral = contextFree vString,
   foldNumberLiteral = contextFree vNumber,
