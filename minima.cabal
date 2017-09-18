@@ -20,8 +20,6 @@ library
                      , MinimaParser
                      , MinimaTerpreter
                      , NanoParse
-                     , SubMinimaAST
-                     , SubMinimaPrettyPrinter
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , random
