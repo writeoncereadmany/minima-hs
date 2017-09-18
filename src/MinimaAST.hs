@@ -41,5 +41,6 @@ foldExpression with = foldOver where
         foldGroup' (initial, context) = foldGroup'' ([initial], context) where
           foldGroup'' (acc, context) (x:xs) folder = let (next, c) = folder context x
                                                       in foldGroup'' (acc ++ [next], c) xs folder
+          foldGroup'' (acc, context) [] folder = (acc, context)
       [] -> error "Cannot have an empty group"
     )

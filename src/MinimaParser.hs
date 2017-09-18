@@ -87,5 +87,5 @@ expression = (declaration <|> variable <|> stringLiteral <|> numberLiteral <|> f
 program :: Parser Program
 program = separated expression ","
 
-run :: String -> Program
-run = runParser program
+parseProgram :: String -> Program
+parseProgram = runParser program
