@@ -9,7 +9,7 @@ data State = Num Double | Str String | Nowt
 
 data Value
   = VObject State String (Map String Value)
-  | VBuiltinFunction String ([Value] -> Value)
+  | VBuiltinFunction String ([Value] -> Context)
   | VFunction Environment [String] Expression
 
 instance Show Value where
@@ -19,6 +19,7 @@ instance Show Value where
 
 type Environment = Map String Value
 
+-- for now, just value/environment, but this will also contain IO() in a bit
 type Context = (Value, Environment)
 
 vString :: String -> Value
