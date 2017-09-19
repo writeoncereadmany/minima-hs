@@ -36,6 +36,17 @@ vObject contexts = VObject Nowt (show fields) fields where
 success :: Value
 success = VObject Nowt "success" Map.empty
 
+access :: Context -> Context -> String -> Context
+access (_, env) (obj, _) field = (getField obj field, env) where
+  getField (VObject _ _ fields) field = fields Map.! field
+  getField func _ = error ("Cannot get field from " ++ (show func))
+
+call :: Context -> Context -> [Context] -> Context
+call (_, env) (fun, _) args = (doCall fun args, env) where
+  doCall (VBuiltinFunction _ f) args = error "Builtin function"
+  doCall (VFunction env params body) args = error "Custom function"
+  doCall (VObject _ _ _) _ = error "Cannot call an object"
+
 evaluator :: ExpressionSemantics Context
 evaluator = ExpressionSemantics {
   foldVariable = usingEnv (Map.!),
@@ -44,7 +55,7 @@ evaluator = ExpressionSemantics {
   foldNumberLiteral = contextFree vNumber,
   foldCall = \context -> \function -> \arguments -> error "call",
   foldFunction = \(_, env) -> \params -> \body -> (VFunction env params body, env),
-  foldAccess = \context -> \object -> \field -> error "access",
+  foldAccess = access,
   foldObject = contextFree vObject,
   foldGroup = \(_, env) -> \groupedElements -> (fst $ last groupedElements, env)
 }
