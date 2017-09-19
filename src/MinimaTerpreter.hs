@@ -10,12 +10,12 @@ data State = Num Double | Str String | Nowt
 data Value
   = VObject State String (Map String Value)
   | VBuiltinFunction String ([Value] -> Value)
-  | VFunction [String] Expression
+  | VFunction Environment [String] Expression
 
 instance Show Value where
   show (VObject state display methods) = display
   show (VBuiltinFunction name f) = "Function " ++ name
-  show (VFunction params body) = "Custom function"
+  show (VFunction env params body) = "Custom function"
 
 type Environment = Map String Value
 
@@ -42,7 +42,7 @@ evaluator = ExpressionSemantics {
   foldStringLiteral = contextFree vString,
   foldNumberLiteral = contextFree vNumber,
   foldCall = \context -> \function -> \arguments -> error "call",
-  foldFunction = \context -> \params -> \body -> error "function",
+  foldFunction = \(_, env) -> \params -> \body -> (VFunction env params body, env),
   foldAccess = \context -> \object -> \field -> error "access",
   foldObject = contextFree vObject,
   foldGroup = \(_, env) -> \groupedElements -> (fst $ last groupedElements, env)
