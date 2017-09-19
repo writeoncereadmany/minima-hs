@@ -19,60 +19,40 @@ instance Show Value where
 
 type Environment = Map String Value
 
-invalidArgs :: String -> String -> [Value] -> a
-invalidArgs name expected actual = error (name ++ " takes " ++ expected ++ ": given " ++ show actual)
-
-showAs :: String -> Value
-showAs text = VBuiltinFunction "show" shower'
-  where shower' [] = vString text
-        shower' args = invalidArgs "show" "no arguments" args
+type Context = (Value, Environment)
 
 vString :: String -> Value
-vString text = VObject (Str text) text  (Map.fromList
-    [ ("concat", VBuiltinFunction "concat" concatStrings)
-    , ("show", showAs text)
-    ])
-    where concatStrings [(VObject (Str t) _ _)] = vString $ text ++ t
-          concatStrings args = invalidArgs "Concat" "a single string" args
+vString text = VObject (Str text) text Map.empty
 
 vNumber :: Double -> Value
-vNumber number = VObject (Num number) (show number) (Map.fromList
-    [ binaryOp "plus" (+)
-    , binaryOp "minus" (-)
-    , binaryOp "multiplyBy" (*)
-    , binaryOp "divideBy" (/)
-    , ("show", showAs $ show number)
-    ])
-    where apply _ op [(VObject (Num n) _ _)] = vNumber $ number `op` n
-          apply name op args = invalidArgs name "a single number" args
-          binaryOp name op = (name, VBuiltinFunction name (apply name op))
+vNumber num = VObject (Num num) (show num) Map.empty
 
-vObject :: Map String Value -> Value
-vObject fields = VObject Nowt (show fields) fields
+vObject :: [(String, Context)] -> Value
+vObject contexts = VObject Nowt (show fields) fields where
+        extractValues (s, (v, c)) = (s, v)
+        fields = Map.fromList $ extractValues <$> contexts
 
 success :: Value
-success = VObject Nowt "Success" ( Map.fromList [("show", showAs "Success")] )
+success = VObject Nowt "success" Map.empty
 
-callFunction :: Environment -> Value -> [Value] -> Value
-callFunction context (VObject typ _ _) args = error "Cannot call an object"
-callFunction context (VBuiltinFunction name f) args = f args
-callFunction context (VFunction params body) args = let fVariables = Map.fromList $ zip params args
-                                                        fContext = Map.union fVariables context
-                                                     in fst $ foldExpression evaluator fContext body
-
-access :: Value -> String -> Value
-access (VObject _ _ fields) field = fields Map.! field
-access _ _ = error "Cannot access fields of a function"
-
-evaluator :: ExpressionSemantics Value Environment
+evaluator :: ExpressionSemantics Context
 evaluator = ExpressionSemantics {
-  foldVariable = usingContext (Map.!),
-  foldDeclaration = \context -> \name -> \value -> (success, Map.insert name value context),
+  foldVariable = usingEnv (Map.!),
+  foldDeclaration = \(_, env) -> \name -> \(value, _) -> (success, Map.insert name value env),
   foldStringLiteral = contextFree vString,
   foldNumberLiteral = contextFree vNumber,
-  foldCall = usingContext2 callFunction,
-  foldFunction = contextFree2 VFunction,
-  foldAccess = contextFree2 access,
-  foldObject = contextFree $ vObject . Map.fromList,
-  foldGroup = contextFree last
+  foldCall = \context -> \function -> \arguments -> error "call",
+  foldFunction = \context -> \params -> \body -> error "function",
+  foldAccess = \context -> \object -> \field -> error "access",
+  foldObject = contextFree vObject,
+  foldGroup = \(_, env) -> \groupedElements -> (fst $ last groupedElements, env)
 }
+
+contextFree :: (a -> Value) -> Context -> a -> Context
+contextFree f (v, c) a = (f a, c)
+
+contextFree2 :: (a -> b -> Value) -> Context -> a -> b -> Context
+contextFree2 f (v, c) a b = (f a b, c)
+
+usingEnv :: (Environment -> a -> Value) -> Context -> a -> Context
+usingEnv f (v, c) a = (f c a, c)
