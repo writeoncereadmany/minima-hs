@@ -8,5 +8,5 @@ import MinimaAST
 import MinimaParser
 import MinimaTerpreter
 
-eval :: String -> (Value, Environment)
-eval code = foldl (foldExpression evaluator) (success, Map.fromList [("success", success)]) (parseProgram code) 
+eval :: String -> IO ()
+eval code = ioFrom $ foldl (foldExpression evaluator) (success, Map.fromList [("success", success), ("print", printFunction)], return ()) (parseProgram code)

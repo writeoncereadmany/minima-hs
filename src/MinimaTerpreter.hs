@@ -20,8 +20,7 @@ instance Show Value where
 
 type Environment = Map String Value
 
--- for now, just value/environment, but this will also contain IO() in a bit
-type Context = (Value, Environment)
+type Context = (Value, Environment, IO ())
 
 vString :: String -> Value
 vString text = VObject (Str text) text Map.empty
@@ -49,43 +48,54 @@ printFunction = VBuiltinFunction "print" pf where
 
 vObject :: [(String, Context)] -> Value
 vObject contexts = VObject Nowt (show fields) fields where
-        extractValues (s, (v, c)) = (s, v)
+        extractValues (s, (v, c, io)) = (s, v)
         fields = Map.fromList $ extractValues <$> contexts
 
 success :: Value
 success = VObject Nowt "success" Map.empty
 
 access :: Context -> Context -> String -> Context
-access (_, env) (obj, _) field = (getField obj field, env) where
+access (_, env, _) (obj, _, io) field = (getField obj field, env, io) where
   getField (VObject _ _ fields) field = fields Map.! field
   getField func _ = error ("Cannot get field from " ++ (show func))
 
 call :: Context -> Context -> [Context] -> Context
-call (_, env) (fun, _) args = (doCall fun args, env) where
-  doCall (VBuiltinFunction _ f) args = fst $ f (return ()) (fst <$> args)
-  doCall (VFunction fenv params body) args = let variables = Map.fromList $ zip params (fst <$> args)
+call (_, env, _) (fun, _, _) args = let (result, io) = doCall fun args in (result, env, io) where
+  doCall (VBuiltinFunction _ f) args = f (ioFrom $ last args) (valueFrom <$> args)
+  doCall (VFunction fenv params body) args = let variables = Map.fromList $ zip params (valueFrom <$> args)
                                                  newEnv = Map.union variables fenv
-                                              in fst $ foldExpression evaluator (success, newEnv) body
+                                                 ioIn = ioFrom $ last args
+                                                 (result, _, ioOut) = foldExpression evaluator (success, newEnv, ioIn) body
+                                              in (result, ioOut)
   doCall (VObject _ _ _) _ = error "Cannot call an object"
 
 evaluator :: ExpressionSemantics Context
 evaluator = ExpressionSemantics {
   foldVariable = usingEnv (Map.!),
-  foldDeclaration = \(_, env) -> \name -> \(value, _) -> (success, Map.insert name value env),
+  foldDeclaration = \(_, env, _) -> \name -> \(value, _, io) -> (success, Map.insert name value env, io),
   foldStringLiteral = contextFree vString,
   foldNumberLiteral = contextFree vNumber,
   foldCall = call,
-  foldFunction = \(_, env) -> \params -> \body -> (VFunction env params body, env),
+  foldFunction = \(_, env, io) -> \params -> \body -> (VFunction env params body, env, io),
   foldAccess = access,
   foldObject = contextFree vObject,
-  foldGroup = \(_, env) -> \groupedElements -> (fst $ last groupedElements, env)
+  foldGroup = \(_, env, _) -> \groupedElements -> (valueFrom $ last groupedElements, env, ioFrom $ last groupedElements)
 }
 
+valueFrom :: (Value, Environment, IO ()) -> Value
+valueFrom (v, _, _) = v
+
+envFrom :: (Value, Environment, IO ()) -> Environment
+envFrom (_, e, _) = e
+
+ioFrom :: (Value, Environment, IO ()) -> IO ()
+ioFrom (_, _, io) = io
+
 contextFree :: (a -> Value) -> Context -> a -> Context
-contextFree f (v, c) a = (f a, c)
+contextFree f (v, c, io) a = (f a, c, io)
 
 contextFree2 :: (a -> b -> Value) -> Context -> a -> b -> Context
-contextFree2 f (v, c) a b = (f a b, c)
+contextFree2 f (v, c, io) a b = (f a b, c, io)
 
 usingEnv :: (Environment -> a -> Value) -> Context -> a -> Context
-usingEnv f (v, c) a = (f c a, c)
+usingEnv f (v, c, io) a = (f c a, c, io)
