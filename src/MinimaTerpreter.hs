@@ -10,7 +10,7 @@ data State = Num Double | Str String | Nowt
 data Value
   = VObject State String (Map String Value)
   -- builtin functions have to be able to do IO things, and also return a value
-  | VBuiltinFunction String ([Value] -> Value)
+  | VBuiltinFunction String (IO () -> [Value] -> (Value, IO ()))
   | VFunction Environment [String] Expression
 
 instance Show Value where
@@ -37,8 +37,15 @@ vNumber num = VObject (Num num) (show num) (Map.fromList
     impl op [(VObject (Num other) _ _)] = vNumber $ num `op` other
     impl op _ = error "wrong args"
     binaryOperator :: String -> (Double -> Double -> Double) -> (String, Value)
-    binaryOperator name op = (name, VBuiltinFunction name (impl op))
+    binaryOperator name op = (name, VBuiltinFunction name (purely $ impl op))
 
+purely :: ([Value] -> Value) -> (IO () -> [Value] -> (Value, IO ()))
+purely f = \io -> \args -> (f args, io)
+
+printFunction :: Value
+printFunction = VBuiltinFunction "print" pf where
+  pf io [(VObject (Str str) _ _)] = (success, io >> putStrLn str)
+  pf _ _ = error "wrong args"
 
 vObject :: [(String, Context)] -> Value
 vObject contexts = VObject Nowt (show fields) fields where
@@ -55,7 +62,7 @@ access (_, env) (obj, _) field = (getField obj field, env) where
 
 call :: Context -> Context -> [Context] -> Context
 call (_, env) (fun, _) args = (doCall fun args, env) where
-  doCall (VBuiltinFunction _ f) args = f (fst <$> args)
+  doCall (VBuiltinFunction _ f) args = fst $ f (return ()) (fst <$> args)
   doCall (VFunction fenv params body) args = let variables = Map.fromList $ zip params (fst <$> args)
                                                  newEnv = Map.union variables fenv
                                               in fst $ foldExpression evaluator (success, newEnv) body
