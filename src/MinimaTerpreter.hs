@@ -9,7 +9,8 @@ data State = Num Double | Str String | Nowt
 
 data Value
   = VObject State String (Map String Value)
-  | VBuiltinFunction String ([Value] -> Context)
+  -- builtin functions have to be able to do IO things, and also return a value
+  | VBuiltinFunction String ([Context] -> Context)
   | VFunction Environment [String] Expression
 
 instance Show Value where
@@ -41,13 +42,13 @@ access (_, env) (obj, _) field = (getField obj field, env) where
   getField (VObject _ _ fields) field = fields Map.! field
   getField func _ = error ("Cannot get field from " ++ (show func))
 
--- call :: Context -> Context -> [Context] -> Context
--- call (_, env) (fun, _) args = (doCall fun args, env) where
---   doCall (VBuiltinFunction _ f) args = error "Builtin function"
---   doCall (VFunction fenv params body) args = let variables = Map.fromList $ zip params (fst <$> args)
---                                                  newEnv = Map.union variables fenv
---                                               in fst $ foldExpression evaluator (success, newEnv) body
---   doCall (VObject _ _ _) _ = error "Cannot call an object"
+call :: Context -> Context -> [Context] -> Context
+call (_, env) (fun, _) args = (doCall fun args, env) where
+  doCall (VBuiltinFunction _ f) args = fst $ f args
+  doCall (VFunction fenv params body) args = let variables = Map.fromList $ zip params (fst <$> args)
+                                                 newEnv = Map.union variables fenv
+                                              in fst $ foldExpression evaluator (success, newEnv) body
+  doCall (VObject _ _ _) _ = error "Cannot call an object"
 
 evaluator :: ExpressionSemantics Context
 evaluator = ExpressionSemantics {
@@ -55,7 +56,7 @@ evaluator = ExpressionSemantics {
   foldDeclaration = \(_, env) -> \name -> \(value, _) -> (success, Map.insert name value env),
   foldStringLiteral = contextFree vString,
   foldNumberLiteral = contextFree vNumber,
-  foldCall = \c -> \f -> \args -> error "call",
+  foldCall = call,
   foldFunction = \(_, env) -> \params -> \body -> (VFunction env params body, env),
   foldAccess = access,
   foldObject = contextFree vObject,
