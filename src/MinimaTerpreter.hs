@@ -10,7 +10,7 @@ data State = Num Double | Str String | Nowt
 data Value
   = VObject State String (Map String Value)
   -- builtin functions have to be able to do IO things, and also return a value
-  | VBuiltinFunction String ([Context] -> Context)
+  | VBuiltinFunction String ([Value] -> Value)
   | VFunction Environment [String] Expression
 
 instance Show Value where
@@ -33,8 +33,8 @@ vNumber num = VObject (Num num) (show num) (Map.fromList
   , binaryOperator "multiplyBy" (*)
   , binaryOperator "divideBy" (/)
   ]) where
-    impl :: (Double -> Double -> Double) -> [Context] -> Context
-    impl op [((VObject (Num other) _ _), env)] = (vNumber (num `op` other), env)
+    impl :: (Double -> Double -> Double) -> [Value] -> Value
+    impl op [(VObject (Num other) _ _)] = vNumber $ num `op` other
     impl op _ = error "wrong args"
     binaryOperator :: String -> (Double -> Double -> Double) -> (String, Value)
     binaryOperator name op = (name, VBuiltinFunction name (impl op))
@@ -55,7 +55,7 @@ access (_, env) (obj, _) field = (getField obj field, env) where
 
 call :: Context -> Context -> [Context] -> Context
 call (_, env) (fun, _) args = (doCall fun args, env) where
-  doCall (VBuiltinFunction _ f) args = fst $ f args
+  doCall (VBuiltinFunction _ f) args = f (fst <$> args)
   doCall (VFunction fenv params body) args = let variables = Map.fromList $ zip params (fst <$> args)
                                                  newEnv = Map.union variables fenv
                                               in fst $ foldExpression evaluator (success, newEnv) body
