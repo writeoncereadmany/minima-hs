@@ -78,7 +78,7 @@ evaluator = ExpressionSemantics {
   foldCall = call,
   foldFunction = \(_, env, io) -> \params -> \body -> (VFunction env params body, env, io),
   foldAccess = access,
-  foldObject = contextFree vObject,
+  foldObject = \(_, env, _) -> \fields -> (vObject fields, env, ioFrom $ snd $ last fields),
   foldGroup = \(_, env, _) -> \groupedElements -> (valueFrom $ last groupedElements, env, ioFrom $ last groupedElements)
 }
 
