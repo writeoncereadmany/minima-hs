@@ -26,10 +26,11 @@ data ExpressionSemantics c = ExpressionSemantics {
   foldGroup :: c -> [c] -> c
 }
 
+-- like reduce, only we return all the intermediate values instead of just the end result
 cascade :: (a -> b -> a) -> a -> [b] -> [a]
 cascade f context items = cascade' context items [] where
   cascade' _ [] acc = acc
-  cascade' context (x:xs) acc = let newContext = f context x in cascade' newContext xs (newContext : acc)
+  cascade' context (x:xs) acc = let newContext = f context x in cascade' newContext xs (acc ++ [newContext])
 
 foldExpression :: ExpressionSemantics c -> c -> Expression -> c
 foldExpression with = foldOver where
