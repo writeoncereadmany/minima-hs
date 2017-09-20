@@ -26,16 +26,19 @@ data ExpressionSemantics c = ExpressionSemantics {
   foldGroup :: c -> [c] -> c
 }
 
+cascade :: (a -> b -> a) -> a -> [b] -> [a]
+cascade f context items = cascade' context items [] where
+  cascade' _ [] acc = acc
+  cascade' context (x:xs) acc = let newContext = f context x in cascade' newContext xs (newContext : acc)
+
 foldExpression :: ExpressionSemantics c -> c -> Expression -> c
 foldExpression with = foldOver where
   foldOver context (Variable name) = foldVariable with context name
   foldOver context (Declaration name value) = foldDeclaration with context name (foldOver context value)
   foldOver context (StringLiteral text) = foldStringLiteral with context text
   foldOver context (NumberLiteral number) = foldNumberLiteral with context number
-  foldOver context (Call func args) = foldCall with context (foldOver context func) ((foldOver context) <$> args)
+  foldOver context (Call func args) = foldCall with context (foldOver context func) (cascade foldOver context args)
   foldOver context (Function params body) = foldFunction with context params body
   foldOver context (Access object field) = foldAccess with context (foldOver context object) field
-  foldOver context (Object fields) = foldObject with context (map (\(n, x) -> (n, foldOver context x)) fields)
-  foldOver context (Group expressions) = foldGroup with context (build context expressions []) where
-    build context [] acc = acc
-    build context (x:xs) acc = let newContext = foldOver context x in build newContext xs (newContext : acc)
+  foldOver context (Object fields) = foldObject with context (zip (fst <$> fields) (cascade foldOver context (snd <$> fields)))
+  foldOver context (Group expressions) = foldGroup with context (cascade foldOver context expressions)
