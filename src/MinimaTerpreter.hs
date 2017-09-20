@@ -27,7 +27,18 @@ vString :: String -> Value
 vString text = VObject (Str text) text Map.empty
 
 vNumber :: Double -> Value
-vNumber num = VObject (Num num) (show num) Map.empty
+vNumber num = VObject (Num num) (show num) (Map.fromList
+  [ binaryOperator "plus" (+)
+  , binaryOperator "minus" (-)
+  , binaryOperator "multiplyBy" (*)
+  , binaryOperator "divideBy" (/)
+  ]) where
+    impl :: (Double -> Double -> Double) -> [Context] -> Context
+    impl op [((VObject (Num other) _ _), env)] = (vNumber (num `op` other), env)
+    impl op _ = error "wrong args"
+    binaryOperator :: String -> (Double -> Double -> Double) -> (String, Value)
+    binaryOperator name op = (name, VBuiltinFunction name (impl op))
+
 
 vObject :: [(String, Context)] -> Value
 vObject contexts = VObject Nowt (show fields) fields where
