@@ -62,16 +62,18 @@ access (_, env, _) (obj, _, io) field = (getField obj field, env, io) where
   getField (VObject _ _ fields) field = fields Map.! field
   getField func _ = error ("Cannot get field from " ++ (show func))
 
+ioFromList :: IO () -> [Context] -> IO ()
+ioFromList io [] = io
+ioFromList io cs = ioFrom $ last cs
+
 call :: Context -> Context -> [Context] -> Context
-call (_, env, _) (fun, _, io) args = let (result, io) = doCall fun args in (result, env, io) where
-  getIo [] = io
-  getIo (x:xs) = ioFrom $ last args
-  doCall (VBuiltinFunction _ f) args = f (getIo args) (valueFrom <$> args)
+call (_, env, _) (fun, _, fio) args = let (result, io) = doCall fun args in (result, env, io) where
+  doCall (VBuiltinFunction _ f) args = f (ioFromList fio args) (valueFrom <$> args)
   doCall (VFunction fenv params body) args = let variables = Map.fromList $ zip params (valueFrom <$> args)
                                                  newEnv = Map.union variables fenv
-                                                 ioIn = getIo args
+                                                 ioIn = ioFromList fio args
                                                  (result, _, ioOut) = foldExpression evaluator (success, newEnv, ioIn) body
-                                              in (result, ioOut) 
+                                              in (result, ioOut)
   doCall (VObject _ _ _) _ = error "Cannot call an object"
 
 evaluator :: ExpressionSemantics Context
@@ -83,8 +85,9 @@ evaluator = ExpressionSemantics {
   foldCall = call,
   foldFunction = \(_, env, io) -> \params -> \body -> (VFunction env params body, env, io),
   foldAccess = access,
-  foldObject = \(_, env, _) -> \fields -> (vObject fields, env, ioFrom $ snd $ last fields),
-  foldGroup = \(_, env, _) -> \groupedElements -> (valueFrom $ last groupedElements, env, ioFrom $ last groupedElements)
+  foldObject = \(_, env, io) -> \fields -> (vObject fields, env, ioFromList io (snd <$> fields)),
+  -- a group cannot be empty, according to the grammar
+  foldGroup = \(_, env, io) -> \groupedElements -> (valueFrom $ last groupedElements, env, ioFrom $ last groupedElements)
 }
 
 valueFrom :: (Value, Environment, IO ()) -> Value
