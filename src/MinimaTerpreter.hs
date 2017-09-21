@@ -9,7 +9,6 @@ data State = Num Double | Str String | Nowt
 
 data Value
   = VObject State String (Map String Value)
-  -- builtin functions have to be able to do IO things, and also return a value
   | VBuiltinFunction String (IO () -> [Value] -> (Value, IO ()))
   | VFunction Environment [String] Expression
 
@@ -31,10 +30,14 @@ vNumber num = VObject (Num num) (show num) (Map.fromList
   , binaryOperator "minus" (-)
   , binaryOperator "multiplyBy" (*)
   , binaryOperator "divideBy" (/)
+  , ("show", VBuiltinFunction "show" (purely doShow))
   ]) where
     impl :: (Double -> Double -> Double) -> [Value] -> Value
     impl op [(VObject (Num other) _ _)] = vNumber $ num `op` other
     impl op _ = error "wrong args"
+    doShow :: [Value] -> Value
+    doShow [] = vString $ show num
+    doShow _ = error "wrong args"
     binaryOperator :: String -> (Double -> Double -> Double) -> (String, Value)
     binaryOperator name op = (name, VBuiltinFunction name (purely $ impl op))
 
@@ -60,13 +63,15 @@ access (_, env, _) (obj, _, io) field = (getField obj field, env, io) where
   getField func _ = error ("Cannot get field from " ++ (show func))
 
 call :: Context -> Context -> [Context] -> Context
-call (_, env, _) (fun, _, _) args = let (result, io) = doCall fun args in (result, env, io) where
-  doCall (VBuiltinFunction _ f) args = f (ioFrom $ last args) (valueFrom <$> args)
+call (_, env, _) (fun, _, io) args = let (result, io) = doCall fun args in (result, env, io) where
+  getIo [] = io
+  getIo (x:xs) = ioFrom $ last args
+  doCall (VBuiltinFunction _ f) args = f (getIo args) (valueFrom <$> args)
   doCall (VFunction fenv params body) args = let variables = Map.fromList $ zip params (valueFrom <$> args)
                                                  newEnv = Map.union variables fenv
-                                                 ioIn = ioFrom $ last args
+                                                 ioIn = getIo args
                                                  (result, _, ioOut) = foldExpression evaluator (success, newEnv, ioIn) body
-                                              in (result, ioOut)
+                                              in (result, ioOut) 
   doCall (VObject _ _ _) _ = error "Cannot call an object"
 
 evaluator :: ExpressionSemantics Context
