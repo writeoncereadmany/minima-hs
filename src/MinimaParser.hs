@@ -84,8 +84,8 @@ access = do
 expression :: Parser Expression
 expression = (declaration <|> variable <|> stringLiteral <|> numberLiteral <|> function <|> object <|> group) `andMaybe` (access <|> call)
 
-program :: Parser Program
-program = separated expression ","
+program :: Parser Expression
+program = Group <$> separated expression ","
 
-parseProgram :: String -> Program
+parseProgram :: String -> Expression
 parseProgram = runParser program
