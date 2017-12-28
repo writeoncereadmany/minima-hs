@@ -19,7 +19,7 @@ variable :: Parser Expression
 variable = Variable <$> token identifier
 
 stringLiteral :: Parser Expression
-stringLiteral = StringLiteral <$> token (enclosed (many $ noneOf "'") "'" "'")
+stringLiteral = StringLiteral <$> token (enclosed "'" (many $ noneOf "'") "'")
 
 intPart :: Parser String
 intPart = do
@@ -51,10 +51,10 @@ declaration = do
   return $ Declaration name value
 
 object :: Parser Expression
-object = Object <$> (enclosed (separated keyValuePair "," <|> return []) "{" "}")
+object = Object <$> (enclosed "{" (separated keyValuePair "," <|> return []) "}")
 
 group :: Parser Expression
-group = Group <$> (enclosed (separated expression ",") "(" ")")
+group = Group <$> (enclosed "(" (separated expression ",") ")")
 
 separated :: Parser a -> String -> Parser [a]
 separated p sep = do { a <- p; rest [a] }
@@ -65,12 +65,12 @@ separated p sep = do { a <- p; rest [a] }
 
 call :: Parser (Expression -> Expression)
 call = do
-  arguments <- enclosed (separated expression "," <|> return []) "[" "]"
+  arguments <- enclosed "[" (separated expression "," <|> return []) "]"
   return (flip Call arguments)
 
 function :: Parser Expression
 function = do
-  arguments <- enclosed (separated identifier "," <|> return []) "[" "]"
+  arguments <- enclosed "[" (separated identifier "," <|> return []) "]"
   reserved "=>"
   body <- expression
   return (Function arguments body)

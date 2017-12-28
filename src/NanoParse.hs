@@ -109,8 +109,8 @@ number = do
   cs <- some digit
   return $ read (s ++ cs)
 
-enclosed :: Parser a -> String -> String -> Parser a
-enclosed p open close = do
+enclosed :: String -> Parser a -> String -> Parser a
+enclosed open p close = do
     reserved open
     content <- p
     reserved close
