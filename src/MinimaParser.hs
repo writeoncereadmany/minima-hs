@@ -85,7 +85,7 @@ expression :: Parser Expression
 expression = (declaration <|> variable <|> stringLiteral <|> numberLiteral <|> function <|> object <|> group) `andMaybe` (access <|> call)
 
 program :: Parser Program
-program = separated expression ","
+program = Program <$> separated expression ","
 
 parseProgram :: String -> Program
 parseProgram = runParser program

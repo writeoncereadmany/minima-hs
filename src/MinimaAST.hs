@@ -1,6 +1,6 @@
 module MinimaAST where
 
-type Program = [Expression]
+data Program = Program [Expression]
 
 data Expression
   = Variable String

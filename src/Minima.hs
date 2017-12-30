@@ -12,4 +12,7 @@ initialContext :: Context
 initialContext = (success, Map.fromList [("success", success), ("print", printFunction)], return ())
 
 eval :: Context -> String -> Context
-eval context code = foldl (foldExpression evaluator) context (parseProgram code)
+eval context code = foldl (foldExpression evaluator) context (expressions $ parseProgram code)
+
+expressions :: Program -> [Expression]
+expressions (Program es) = es
